@@ -1,0 +1,386 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  password     String?
+  name         String?
+  googleId     String?  @unique
+  avatar       String?
+  phoneNumber  String?
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // Relations
+  transactions   Transaction[]
+  savings        Saving[]
+  bookings       Booking[]
+  wishlists      Wishlist[]
+  trips          Trip[]
+  aiConversations AiConversation[]
+  preferences    UserPreferences?
+  notifications  Notification[]
+  reviews        Review[] // ADDED: Reverse relation for Review
+
+  @@map("users")
+}
+
+model UserPreferences {
+  id               String   @id @default(cuid())
+  
+  // Quiz & Travel Preferences
+  travelStyle      String?  
+  budgetRange      String?  
+  preferredActivities String? 
+  groupSize        String?  
+  climatePreference String? 
+  destinations     String?  
+  quizCompleted    Boolean  @default(false)
+  
+  // App Preferences
+  currency         String   @default("KES")
+  language         String   @default("en")
+  notifications    String?
+  theme            String?  @default("light")
+  
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_preferences")
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  type      String
+  title     String
+  message   String
+  isRead    Boolean  @default(false)
+  actionUrl String?
+  priority  String   @default("medium")
+  metadata  String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  userId String
+  user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  savingId  String?
+  saving    Saving? @relation(fields: [savingId], references: [id], onDelete: Cascade)
+
+  bookingId String?
+  booking   Booking? @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  transactionId String?
+  transaction   Transaction? @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+
+  @@map("notifications")
+}
+
+model Transaction {
+  id        String   @id @default(cuid())
+  amount    Float
+  type      String
+  status    String   @default("pending")
+  provider  String
+  reference String?
+  phoneNumber String?
+  
+  // Enhanced metadata
+  category  String?
+  notes     String?
+  metadata  String?
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  savingId  String?
+  saving    Saving? @relation(fields: [savingId], references: [id], onDelete: Cascade)
+  
+  bookingId String?
+  booking   Booking? @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  // Reverse relations
+  contributions Contribution[]
+  notifications Notification[]
+
+  @@map("transactions")
+}
+
+model Saving {
+  id           String   @id @default(cuid())
+  title        String
+  targetAmount Float
+  currentAmount Float   @default(0)
+  description  String?
+  
+  // Savings Strategy
+  frequency    String
+  amountPerFrequency Float
+  startDate    DateTime
+  targetDate   DateTime
+  
+  // Progress Tracking
+  isCompleted  Boolean  @default(false)
+  progress     Float    @default(0)
+  lastContribution DateTime?
+  autoSave     Boolean  @default(false)
+  
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // Relations
+  userId String
+  user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  tripId String?
+  trip   Trip? @relation(fields: [tripId], references: [id], onDelete: Cascade)
+
+  // Automated savings tracking
+  contributions Contribution[]
+
+  // Reverse relations
+  transactions Transaction[]
+  notifications Notification[]
+
+  @@map("savings")
+}
+
+model Contribution {
+  id        String   @id @default(cuid())
+  amount    Float
+  date      DateTime @default(now())
+  method    String
+  status    String   @default("completed")
+  reference String?
+  
+  // Relations
+  savingId String
+  saving   Saving @relation(fields: [savingId], references: [id], onDelete: Cascade)
+  
+  transactionId String?
+  transaction   Transaction? @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+
+  @@map("contributions")
+}
+
+model Trip {
+  id           String   @id @default(cuid())
+  title        String
+  destination  String
+  description  String?
+  
+  // Enhanced categorization for AI & Search
+  category     String
+  subcategory  String?
+  tags         String?
+  
+  // AI Search & Matching Fields
+  climate      String?
+  activities   String?
+  amenities    String?
+  
+  // Budget Information
+  budgetRange  String
+  minBudget    Float
+  maxBudget    Float
+  currency     String   @default("KES")
+  
+  // Trip Details
+  duration     Int?
+  bestSeason   String?
+  groupSize    String?
+  difficulty   String?
+  
+  // Visual & Media
+  imageUrl     String?
+  gallery      String?
+  
+  // Metadata
+  isActive     Boolean  @default(true)
+  isFeatured   Boolean  @default(false)
+  popularity   Int      @default(0)
+  rating       Float?   @default(0)
+  reviewCount  Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // Relations
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  wishlists    Wishlist[]
+  savings      Saving[]
+  bookings     Booking[]
+  aiRecommendations AiRecommendation[]
+  reviews      Review[] // ADDED: Reverse relation for Review
+
+  @@map("trips")
+}
+
+model Booking {
+  id          String   @id @default(cuid())
+  type        String
+  title       String
+  description String?
+  
+  // Booking Details
+  cost        Float
+  status      String   @default("pending")
+  bookingDate DateTime?
+  travelDate  DateTime?
+  returnDate  DateTime?
+  
+  // Payment
+  isPaid      Boolean  @default(false)
+  paymentMethod String?
+  paymentStatus String  @default("pending")
+  
+  // Booking details
+  guests      Int?
+  specialRequests String?
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  userId String
+  user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  tripId String
+  trip   Trip @relation(fields: [tripId], references: [id], onDelete: Cascade)
+
+  // Reverse relations
+  transactions Transaction[]
+  notifications Notification[]
+  reviews      Review[] // ADDED: Reverse relation for Review
+
+  @@map("bookings")
+}
+
+model Wishlist {
+  id        String   @id @default(cuid())
+  priority  String   @default("medium")
+  notes     String?
+  targetDate DateTime?
+  isBooked  Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  userId String
+  user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  tripId String
+  trip   Trip @relation(fields: [tripId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, tripId])
+  @@map("wishlists")
+}
+
+model AiConversation {
+  id          String   @id @default(cuid())
+  title       String?
+  summary     String?
+  
+  // Conversation context
+  userContext String?
+  tripType    String?
+  budgetRange String?
+  groupSize   String?
+  
+  // Status
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  userId String
+  user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  messages    AiMessage[]
+  recommendations AiRecommendation[]
+  
+  @@map("ai_conversations")
+}
+
+model AiMessage {
+  id        String   @id @default(cuid())
+  content   String
+  role      String
+  metadata  String?
+  
+  // AI-specific fields
+  intent    String?
+  entities  String?
+  
+  createdAt DateTime @default(now())
+
+  // Relations
+  conversationId String
+  conversation   AiConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  
+  @@map("ai_messages")
+}
+
+model AiRecommendation {
+  id        String   @id @default(cuid())
+  
+  // Recommendation details
+  reason    String
+  confidence Float
+  criteria  String?
+  
+  // User interaction
+  isSaved   Boolean  @default(false)
+  feedback  String?
+  viewedAt  DateTime?
+  clickedAt DateTime?
+  
+  createdAt DateTime @default(now())
+
+  // Relations
+  conversationId String
+  conversation   AiConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  
+  tripId    String
+  trip      Trip @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  
+  @@map("ai_recommendations")
+}
+
+model Review {
+  id          String   @id @default(cuid())
+  rating      Int
+  comment     String?
+  isVerified  Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  userId String
+  user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  tripId String
+  trip   Trip @relation(fields: [tripId], references: [id], onDelete: Cascade)
+
+  bookingId String?
+  booking   Booking? @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, tripId])
+  @@map("reviews")
+}
